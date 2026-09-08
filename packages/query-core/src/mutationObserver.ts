@@ -172,49 +172,33 @@ export class MutationObserver<
         } satisfies MutationFunctionContext
 
         if (action?.type === 'success') {
-          try {
-            this.#mutateOptions.onSuccess?.(
-              action.data,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
-          try {
-            this.#mutateOptions.onSettled?.(
-              action.data,
-              null,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
+          this.#mutateOptions.onSuccess?.(
+            action.data,
+            variables,
+            onMutateResult,
+            context,
+          )
+          this.#mutateOptions.onSettled?.(
+            action.data,
+            null,
+            variables,
+            onMutateResult,
+            context,
+          )
         } else if (action?.type === 'error') {
-          try {
-            this.#mutateOptions.onError?.(
-              action.error,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
-          try {
-            this.#mutateOptions.onSettled?.(
-              undefined,
-              action.error,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
+          this.#mutateOptions.onError?.(
+            action.error,
+            variables,
+            onMutateResult,
+            context,
+          )
+          this.#mutateOptions.onSettled?.(
+            undefined,
+            action.error,
+            variables,
+            onMutateResult,
+            context,
+          )
         }
       }
 
