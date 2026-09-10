@@ -171,50 +171,58 @@ export class MutationObserver<
           mutationKey: this.options.mutationKey,
         } satisfies MutationFunctionContext
 
+        const runMutateCallback = (cb?: (...args: Array<any>) => unknown, ...args: Array<any>) => {
+          if (!cb) {
+            return
+          }
+          try {
+            const result = cb(...args)
+            if (
+              result &&
+              typeof result === 'object' &&
+              typeof (result as PromiseLike<unknown>).then === 'function'
+            ) {
+              void Promise.resolve(result).then(undefined, (error) => {
+                void Promise.reject(error)
+              })
+            }
+          } catch (error) {
+            void Promise.reject(error)
+          }
+        }
+
         if (action?.type === 'success') {
-          try {
-            this.#mutateOptions.onSuccess?.(
-              action.data,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
-          try {
-            this.#mutateOptions.onSettled?.(
-              action.data,
-              null,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
+          runMutateCallback(
+            this.#mutateOptions.onSuccess,
+            action.data,
+            variables,
+            onMutateResult,
+            context,
+          )
+          runMutateCallback(
+            this.#mutateOptions.onSettled,
+            action.data,
+            null,
+            variables,
+            onMutateResult,
+            context,
+          )
         } else if (action?.type === 'error') {
-          try {
-            this.#mutateOptions.onError?.(
-              action.error,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
-          try {
-            this.#mutateOptions.onSettled?.(
-              undefined,
-              action.error,
-              variables,
-              onMutateResult,
-              context,
-            )
-          } catch (e) {
-            void Promise.reject(e)
-          }
+          runMutateCallback(
+            this.#mutateOptions.onError,
+            action.error,
+            variables,
+            onMutateResult,
+            context,
+          )
+          runMutateCallback(
+            this.#mutateOptions.onSettled,
+            undefined,
+            action.error,
+            variables,
+            onMutateResult,
+            context,
+          )
         }
       }
 
