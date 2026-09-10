@@ -1,0 +1,25 @@
+{
+  "name": "TanStack Query",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "user": "node",
+  "install": "bash .cursor/install.sh",
+  "ports": [
+    {
+      "name": "react-simple-example",
+      "port": 5173
+    }
+  ],
+  "terminals": [
+    {
+      "name": "watch",
+      "command": "corepack enable && corepack prepare pnpm@11.9.0 --activate && pnpm run watch"
+    },
+    {
+      "name": "react-simple-example",
+      "command": "corepack enable && corepack prepare pnpm@11.9.0 --activate && cd examples/react/simple && pnpm run dev --host 0.0.0.0 --port 5173"
+    }
+  ]
+}
