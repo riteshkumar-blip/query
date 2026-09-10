@@ -1170,5 +1170,107 @@ describe('mutations', () => {
       )
       expect(unhandledRejectionFn).toHaveBeenNthCalledWith(4, newSettledError)
     })
+
+    test('error-path rejected promise from onError preserves original mutation error and still runs onSettled', async ({
+      onTestFinished,
+    }) => {
+      const unhandledRejectionFn = vi.fn()
+      process.on('unhandledRejection', (error) => unhandledRejectionFn(error))
+      onTestFinished(() => {
+        process.off('unhandledRejection', unhandledRejectionFn)
+      })
+
+      const key = queryKey()
+      const mutationError = new Error('mutation-error')
+      const hookError = new Error('hook-error')
+      const results: Array<string> = []
+
+      let caught: Error | undefined
+      executeMutation(
+        queryClient,
+        {
+          mutationKey: key,
+          mutationFn: () => Promise.reject(mutationError),
+          onError: () => {
+            results.push('onError')
+            return Promise.reject(hookError)
+          },
+          onSettled: () => {
+            results.push('onSettled')
+          },
+        },
+        'vars',
+      ).catch((error) => {
+        caught = error
+      })
+
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(results).toEqual(['onError', 'onSettled'])
+      expect(caught).toEqual(mutationError)
+      expect(unhandledRejectionFn).toHaveBeenCalledTimes(1)
+      expect(unhandledRejectionFn).toHaveBeenCalledWith(hookError)
+
+      const cached = queryClient.getMutationCache().find({ mutationKey: key })
+      expect(cached?.state.status).toBe('error')
+      expect(cached?.state.error).toEqual(mutationError)
+    })
+
+    test('error-path throwing cache onError preserves original mutation state error consecutively with local onSettled', async ({
+      onTestFinished,
+    }) => {
+      const unhandledRejectionFn = vi.fn()
+      process.on('unhandledRejection', (error) => unhandledRejectionFn(error))
+      onTestFinished(() => {
+        process.off('unhandledRejection', unhandledRejectionFn)
+      })
+
+      const cacheError = new Error('cache-onError')
+      const settledError = new Error('local-onSettled')
+      const mutationError = new Error('mutation-error')
+
+      queryClient = new QueryClient({
+        mutationCache: new MutationCache({
+          onError: () => {
+            throw cacheError
+          },
+        }),
+      })
+      queryClient.mount()
+
+      const key = queryKey()
+      const results: Array<string> = []
+
+      let caught: Error | undefined
+      executeMutation(
+        queryClient,
+        {
+          mutationKey: key,
+          mutationFn: () => Promise.reject(mutationError),
+          onError: () => {
+            results.push('local-onError')
+          },
+          onSettled: () => {
+            results.push('local-onSettled')
+            throw settledError
+          },
+        },
+        'vars',
+      ).catch((error) => {
+        caught = error
+      })
+
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(results).toEqual(['local-onError', 'local-onSettled'])
+      expect(caught).toEqual(mutationError)
+      expect(unhandledRejectionFn).toHaveBeenCalledTimes(2)
+      expect(unhandledRejectionFn).toHaveBeenNthCalledWith(1, cacheError)
+      expect(unhandledRejectionFn).toHaveBeenNthCalledWith(2, settledError)
+
+      const cached = queryClient.getMutationCache().find({ mutationKey: key })
+      expect(cached?.state.status).toBe('error')
+      expect(cached?.state.error).toEqual(mutationError)
+    })
   })
 })

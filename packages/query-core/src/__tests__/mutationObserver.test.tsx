@@ -476,7 +476,7 @@ describe('mutationObserver', () => {
       unsubscribe()
     })
 
-    test('onSuccess throw still runs onSettled', async ({
+    test('onSuccess throw still runs onSettled and is transferred to different execution context without flipping success', async ({
       onTestFinished,
     }) => {
       const unhandledRejectionFn = vi.fn()
@@ -486,10 +486,13 @@ describe('mutationObserver', () => {
       })
 
       const onSuccessError = new Error('onSuccess-error')
+      const onSettledError = new Error('onSettled-error')
       const onSuccess = vi.fn(() => {
         throw onSuccessError
       })
-      const onSettled = vi.fn()
+      const onSettled = vi.fn(() => {
+        throw onSettledError
+      })
 
       const mutationObserver = new MutationObserver(queryClient, {
         mutationFn: (text: string) => Promise.resolve(text.toUpperCase()),
@@ -505,8 +508,11 @@ describe('mutationObserver', () => {
 
       expect(onSuccess).toHaveBeenCalledTimes(1)
       expect(onSettled).toHaveBeenCalledTimes(1)
-      expect(unhandledRejectionFn).toHaveBeenCalledTimes(1)
-      expect(unhandledRejectionFn).toHaveBeenCalledWith(onSuccessError)
+      expect(unhandledRejectionFn).toHaveBeenCalledTimes(2)
+      expect(unhandledRejectionFn).toHaveBeenNthCalledWith(1, onSuccessError)
+      expect(unhandledRejectionFn).toHaveBeenNthCalledWith(2, onSettledError)
+      expect(mutationObserver.getCurrentResult().isSuccess).toBe(true)
+      expect(mutationObserver.getCurrentResult().error).toBeNull()
 
       unsubscribe()
     })
